@@ -127,7 +127,7 @@ from .core import (
     unpack_array2,
     unpack_tensor,
 )
-from .ndarray import NDArray, asarray, copy, empty, frombuffer, full, uninit, zeros
+from .ndarray import NDArray, asarray, copy, empty, frombuffer, full, uninit, zeros, ndarray_from_cframe
 from .schunk import SChunk, open
 from .version import __version__
 

@@ -218,6 +218,12 @@ class NDArray(blosc2_ext.NDArray):
         """
         return super().tobytes()
 
+    def to_cframe(self):
+        """Returns a cframe of the ndarray.
+        # TODO: write the doc
+        """
+        return super().to_cframe()
+
     def copy(self, dtype=None, **kwargs):
         """Create a copy of an array with same parameters.
 
@@ -549,9 +555,7 @@ def full(shape, fill_value, dtype=None, **kwargs):
     return arr
 
 
-def frombuffer(
-    buffer: bytes, shape: int | tuple | list, dtype: np.dtype = np.uint8, **kwargs: dict
-) -> NDArray:
+def frombuffer(buffer: bytes, shape: int | tuple | list, dtype: np.dtype = np.uint8, **kwargs: dict) -> NDArray:
     """Create an array out of a buffer.
 
     Parameters
@@ -640,6 +644,13 @@ def asarray(array: np.ndarray, **kwargs: dict) -> NDArray:
     return blosc2_ext.asarray(array, chunks, blocks, **kwargs)
 
 
+def ndarray_from_cframe(cframe, copy=False):
+    """Create an array out of a buffer.
+    # TOOD: write the doc
+    """
+    return blosc2_ext.ndarray_from_cframe(cframe, copy)
+
+
 def _check_ndarray_kwargs(**kwargs):
     supported_keys = [
         "chunks",
@@ -653,11 +664,7 @@ def _check_ndarray_kwargs(**kwargs):
     ]
     for key in kwargs:
         if key not in supported_keys:
-            raise KeyError(
-                f"Only {supported_keys} are supported as"
-                f" keyword arguments"
-                f", and you passed {key}"
-            )
+            raise KeyError(f"Only {supported_keys} are supported as" f" keyword arguments" f", and you passed {key}")
     if "cparams" in kwargs and "chunks" in kwargs["cparams"]:
         raise ValueError("You cannot pass chunks in cparams, use `chunks` argument instead")
     if "cparams" in kwargs and "blocks" in kwargs["cparams"]:

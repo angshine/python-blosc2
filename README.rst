@@ -158,6 +158,7 @@ Building from sources
     git submodule update --init --recursive
     python -m pip install -r requirements-build.txt
     python setup.py build_ext --inplace
+    pip install -e .
 
 That's all. You can proceed with testing section now.
 

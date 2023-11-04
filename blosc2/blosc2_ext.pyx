@@ -470,13 +470,19 @@ cdef extern from "b2nd.h":
     int b2nd_get_slice(b2nd_context_t *ctx, b2nd_array_t **array, b2nd_array_t *src, const int64_t *start,
                        const int64_t *stop)
     int b2nd_from_cbuffer(b2nd_context_t *ctx, b2nd_array_t **array, void *buffer, int64_t buffersize)
+    # int b2nd_from_cbuffer(b2nd_context_t *ctx, b2nd_array_t **array, const void *buffer, int64_t buffersize)
     int b2nd_to_cbuffer(b2nd_array_t *array, void *buffer, int64_t buffersize)
+    # int b2nd_to_cbuffer(const b2nd_array_t *array, void *buffer, int64_t buffersize)
     int b2nd_squeeze(b2nd_array_t *array)
     int b2nd_squeeze_index(b2nd_array_t *array, const c_bool *index)
     int b2nd_resize(b2nd_array_t *array, const int64_t *new_shape, const int64_t *start)
     int b2nd_copy(b2nd_context_t *ctx, b2nd_array_t *src, b2nd_array_t **array)
     int b2nd_from_schunk(blosc2_schunk *schunk, b2nd_array_t **array)
 
+    int b2nd_to_cframe(b2nd_array_t *array, uint8_t **cframe, int64_t *cframe_len, c_bool *needs_free)
+    # int b2nd_to_cframe(const b2nd_array_t *array, uint8_t **cframe, int64_t *cframe_len, bool *needs_free);
+    int b2nd_from_cframe(uint8_t *cframe, int64_t cframe_len, c_bool copy, b2nd_array_t **array)
+    # int b2nd_from_cframe(uint8_t *cframe, int64_t cframe_len, bool copy, b2nd_array_t **array);
 
 
 ctypedef struct user_filters_udata:
@@ -2041,7 +2047,6 @@ cdef class NDArray:
 
         return arr
 
-
     def get_slice(self, key, mask, **kwargs):
         start, stop = key
         shape = tuple(sp - st for sp, st in zip(stop, start))
@@ -2108,6 +2113,20 @@ cdef class NDArray:
                   "Error while filling the buffer")
 
         return buffer
+
+    def to_cframe(self):
+        cdef c_bool needs_free
+        cdef int64_t cframe_len
+        cdef uint8_t *cframe
+        _check_rc(b2nd_to_cframe(self.array, &cframe, &cframe_len, &needs_free),
+                  "Error while filling the cframe")
+        if cframe_len < 0:
+            raise RuntimeError("Error while getting the cframe")
+        out = PyBytes_FromStringAndSize(<char*>cframe, cframe_len)
+        if needs_free:
+            free(cframe)
+
+        return out
 
     def copy(self, dtype, **kwargs):
         chunks = kwargs.pop("chunks", self.chunks)
@@ -2322,4 +2341,20 @@ def asarray(ndarray, chunks, blocks, **kwargs):
     _check_rc(b2nd_free_ctx(ctx), "Error while freeing the context")
     ndarray.schunk.mode = kwargs.get("mode", "a")
 
+    return ndarray
+
+
+def ndarray_from_cframe(cframe, copy=False):
+    cdef Py_buffer *buf = <Py_buffer *> malloc(sizeof(Py_buffer))
+    PyObject_GetBuffer(cframe, buf, PyBUF_SIMPLE)
+    cdef b2nd_array_t *array
+    _check_rc(b2nd_from_cframe(<uint8_t *>buf.buf, buf.len, copy, &array),
+              "Error while creating the NDArray")
+    PyBuffer_Release(buf)
+    if array == NULL:
+        raise RuntimeError("Could not get the NDArray from the cframe")
+    ndarray = blosc2.NDArray(_schunk=PyCapsule_New(array.sc, <char *> "blosc2_schunk*", NULL),
+                             _array=PyCapsule_New(array, <char *> "b2nd_array_t*", NULL))
+    if not copy:
+        ndarray.schunk._avoid_cframe_free(True)
     return ndarray
