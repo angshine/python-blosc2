@@ -2,6 +2,5 @@ setuptools
 scikit-build
 cython>=3
 cmake
-oldest-supported-numpy
 ninja
 build
